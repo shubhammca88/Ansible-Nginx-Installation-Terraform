@@ -1,0 +1,59 @@
+- name: Setup Nginx
+  hosts: all
+  become: yes
+
+  vars:
+    nginx_conf_src: nginx.conf
+    nginx_conf_dest: /etc/nginx/nginx.conf
+
+  tasks:
+    - name: Install Nginx (Debian/Ubuntu)
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Nginx (RHEL/CentOS)
+      yum:
+        name: nginx
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Deploy Nginx config
+      copy:
+        src: "{{ nginx_conf_src }}"
+        dest: "{{ nginx_conf_dest }}"
+        owner: root
+        group: root
+        mode: 0644
+      notify: Restart Nginx
+
+    - name: Open HTTP port in firewall (firewalld on RHEL)
+      firewalld:
+        port: "{{ http_port }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Verify Nginx is responding
+      uri:
+        url: "http://{{ inventory_hostname }}:{{ http_port }}"
+        status_code: 200
+      register: nginx_check
+      retries: 3
+      delay: 5
+      until: nginx_check.status == 200
+
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
