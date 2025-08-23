@@ -1,0 +1,30 @@
+- name: Setup Apache
+  hosts: webservers
+  become: yes
+
+  vars:                     # inline variable (defined before tasks)
+    http_port: 80
+
+  tasks:                    # tasks section
+    - name: Install Apache
+      yum:
+        name: httpd
+        state: present
+
+    - name: Ensure Apache is running
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Update config
+      copy:
+        src: httpd.conf
+        dest: /etc/httpd/conf/httpd.conf
+      notify: Restart Apache
+
+  handlers:                 # handlers section
+    - name: Restart Apache
+      service:
+        name: httpd
+        state: restarted
